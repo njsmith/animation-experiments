@@ -9,7 +9,6 @@ import tinycss2
 
 INPUT = "anim2-assets.svg"
 
-# Removing blank text lets the pretty-printer work better
 inkscape = subprocess.Popen(
     [
         "inkscape",
@@ -52,13 +51,20 @@ class TimeSpan:
 
 @attr.s(frozen=True)
 class BaseTime:
-    s = attr.ib()
+    ref = attr.ib()
+    offset = attr.ib(default=0)
+
+    def __str__(self):
+        if self.offset < 0:
+            return f"{self.ref} - {-self.offset}s"
+        else:
+            return f"{self.ref} + {self.offset}s"
 
     def __add__(self, offset):
-        return f"{self.s} + {offset}s"
+        return BaseTime(self.ref, self.offset + offset)
 
     def __sub__(self, offset):
-        return f"{self.s} - {offset}s"
+        return self + -offset
 
 def obj_to_time(obj):
     if isinstance(obj, str):
@@ -66,20 +72,27 @@ def obj_to_time(obj):
     elif isinstance(obj, (int, float)):
         return f"{obj}s"
     elif isinstance(obj, BaseTime):
-        return obj + 0
+        return str(obj)
     assert False
 
-WHEN = None
+TIME = 0
 
 @contextmanager
-def at(when):
-    global WHEN
-    was = WHEN
+def keep_time():
+    global TIME
+    was = TIME
     try:
-        WHEN = obj_to_time(when)
         yield
     finally:
-        WHEN = was
+        TIME = was
+
+def set_time(t):
+    global TIME
+    TIME = obj_to_time(t)
+
+def sleep(offset):
+    global TIME
+    TIME += offset
 
 # Like lxml.builder.E, but with some extra conveniences:
 # - adds required namespace to href=
@@ -96,14 +109,6 @@ def E(*args, **kwargs):
             v = str(v)
         fixed_kwargs[k] = v
     return builder.E(*args, **fixed_kwargs)
-
-# Create element, add it to the svg, give it an id, and return a TimeSpan
-def add_SMIL_tag(*args, **kwargs):
-    elem = E(*args, **kwargs)
-    new_id = next(id_gen)
-    elem.attrib["id"] = new_id
-    svg.append(elem)
-    return TimeSpan(BaseTime(f"{new_id}.begin"), BaseTime(f"{new_id}.end"))
 
 # There are a lot of ways to hide things in SVG/CSS – display: none,
 # visibility: 0, opacity: 0... we want to be able to fade hidden things in
@@ -122,16 +127,26 @@ def set_initial_css(which, name, value):
         which_elem.attrib["style"] = tinycss2.serialize(new_decls)
     svg.append(E("style", f"#{which} {{ {name}: {value}; }}"))
 
-def start_hidden(*whiches):
+def hidden(*whiches):
     for which in whiches:
         set_initial_css(which, "opacity", 0)
 
+# Create element, add it to the svg, give it an id, and return a TimeSpan
+def add_SMIL_tag(*args, **kwargs):
+    global TIME
+    elem = E(*args, **kwargs)
+    new_id = next(id_gen)
+    elem.attrib["id"] = new_id
+    elem.attrib["begin"] = obj_to_time(TIME)
+    svg.append(elem)
+    elem_ts = TimeSpan(BaseTime(f"{new_id}.begin"), BaseTime(f"{new_id}.end"))
+    TIME = elem_ts.end
+    return elem_ts
+
 # Add a SMIL <set> tag
 def set(which, what, to):
-    assert WHEN is not None
     add_SMIL_tag(
         "set",
-        begin=WHEN,
         href="#" + which,
         attributeName=what,
         to=to,
@@ -140,10 +155,8 @@ def set(which, what, to):
 
 # Add a SMIL <animate> tag
 def animate(which, dur, what, **kwargs):
-    assert WHEN is not None
     return add_SMIL_tag(
         "animate",
-        begin=WHEN,
         href="#" + which,
         dur=dur,
         fill="freeze",
@@ -153,9 +166,11 @@ def animate(which, dur, what, **kwargs):
 
 # Add a SMIL <animateMotion> tag for motion along an SVG path
 def slide(which, dur, along):
-    assert WHEN is not None
     # Now we know that 'along' is being used as a motion path, rewrite the
     # path so that it starts at the origin.
+    # XX: for debugging, might be useful to wrap it in a <g> with a transform
+    # that reverses this, so it still appears in the same place in the
+    # document?
     along_elem = by_id[along]
     assert along_elem.tag == "{http://www.w3.org/2000/svg}path"
     path = svgpathtools.parse_path(along_elem.attrib["d"])
@@ -166,7 +181,6 @@ def slide(which, dur, along):
     return add_SMIL_tag(
         "animateMotion",
         E("mpath", href="#" + along),
-        begin=WHEN,
         href="#" + which,
         dur=dur,
         # Easing
@@ -190,9 +204,8 @@ class LineSeq:
     def __attrs_post_init__(self):
         # start with everything after {prefix}-0 hidden
         for i in count(1):
-            print(self._id(i))
             if self._id(i) in by_id:
-                start_hidden(self._id(i))
+                hidden(self._id(i))
             else:
                 self.first_missing = i
                 break
@@ -203,39 +216,61 @@ class LineSeq:
         return f"{self.prefix}-{i}"
 
     def next(self):
-        first = animate(self._id(), 1, "opacity", to=0)
+        with keep_time():
+            animate(self._id(), 1, "opacity", to=0)
         self.showing += 1
-        middle = animate(self._id(), 1, "opacity", from_=0, to=1)
-        if self.showing + 1 == self.first_missing:
-            # If this is the last line, skip the throb
-            return TimeSpan(first.begin, middle.end)
-        else:
-            with at(middle.end):
-                last = animate(
-                    self._id(), 0.5, "opacity", from_=0.5, to=1, repeatCount=3,
-                )
-            return TimeSpan(first.begin, last.end)
+        animate(self._id(), 1, "opacity", from_=0, to=1)
+        # if self.showing + 1 < self.first_missing:
+        #     # If this is an intermediate line, make it throb
+        #     with keep_time():
+        #         animate(
+        #             self._id(), 1, "opacity",
+        #             values="1; 0.5; 1",
+        #             repeatCount="indefinite",
+        #         )
 
+    def finish(self):
+        self.next()
+        assert self.showing + 1 == self.first_missing
 
-# This is the "Guides" layer in inkscape
-set_initial_css("layer2", "display", "none")
-start_hidden("hello", "world", "receive-hello-arrow", "receive-world-arrow")
+################################################################
 
-task1_lines = LineSeq("task1")
+hidden(
+    "layer2",  # "Guides" layer -- can leave visible for debugging
+    "hello",   # moving "hello" box
+    "world",   # moving "world" box
+    "receive-hello-arrow",  # -> next to first receive()
+    "receive-world-arrow",  # -> next to second receive()
+)
 
-def task1_step(begin, word):
-    with at(begin):
-        line_throb = task1_lines.next()
-    with at(line_throb.end + 1):
-        fade_in_word = animate(word, 1, "opacity", from_=0, to=1)
-    with at(fade_in_word.end - 0.5):
-        slide_word = slide(word, 3, f"{word}-path-in")
-    return TimeSpan(begin, slide_word.end)
+send_task_lines = LineSeq("task1")
+receive_task_lines = LineSeq("task2")
 
-task1_step1 = task1_step(0.5, "hello")
-task1_step2 = task1_step(task1_step1.end, "world")
-with at(task1_step2.end):
-    task1_lines.next()
+def send_task_step(word, slide_dur):
+    send_task_lines.next()
+    sleep(0.5)
+    with keep_time():
+        animate(word, 1, "opacity", from_=0, to=1)
+    slide(word, slide_dur, f"{word}-path-in")
+
+def receive_task_step(word):
+    receive_task_lines.next()
+    slide(word, 3, f"{word}-path-out")
+    with keep_time():
+        animate(f"receive-{word}-arrow", 0.5, "opacity", to=1)
+    animate(f"{word}-box", 1, "opacity", to=0)
+    sleep(0.5)
+
+sleep(0.5)
+send_task_step("hello", 3)
+send_task_step("world", 2.5)
+send_task_lines.finish()
+sleep(0.5)
+receive_task_step("hello")
+receive_task_step("world")
+receive_task_lines.finish()
+
+################################################################
 
 doc.write(
     "anim2-2.svg", pretty_print=True, xml_declaration=True, encoding="UTF-8"
