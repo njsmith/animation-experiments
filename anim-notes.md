@@ -10,6 +10,7 @@ inkscape's "XML editor" can be useful to see what's going on
 lineseq
 how the timeline works
 
+hack where we assume the last animation finishes last
 
 to make smaller, could remove the guide layer entirely and then add
 back the paths we need...

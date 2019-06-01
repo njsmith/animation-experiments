@@ -6,6 +6,7 @@ from itertools import count
 from contextlib import contextmanager
 import svgpathtools
 import tinycss2
+import math
 
 __all__ = [
     # Entry point
@@ -13,7 +14,7 @@ __all__ = [
     # Time
     "keep_time", "set_time", "sleep",
     # SVG manipulation
-    "set_initial_css", "set", "animate", "slide",
+    "set_initial_css", "animate", "slide",
     # High-level helpers
     "hidden", "LineSeq",
 ]
@@ -27,7 +28,7 @@ class GlobalState:
 GLOBAL_STATE = None
 
 @contextmanager
-def make_anim(in_svg, out_svg):
+def make_anim(in_svg, out_svg, *, minify=True):
     global GLOBAL_STATE
     inkscape = subprocess.Popen(
         [
@@ -50,6 +51,8 @@ def make_anim(in_svg, out_svg):
     source file: {in_svg}
     """))
 
+    add_play_pause(svg)
+
     # Our own little getElementById
     by_id = {}
     for elem in doc.iter():
@@ -63,9 +66,50 @@ def make_anim(in_svg, out_svg):
     finally:
         GLOBAL_STATE = None
     doc.write(
-        out_svg, pretty_print=True, xml_declaration=True, encoding="UTF-8"
+        out_svg + ".tmp",
+        pretty_print=True, xml_declaration=True, encoding="UTF-8"
     )
+    subprocess.run(["scour", "-i", out_svg + ".tmp", out_svg], check=True)
 
+
+def viewbox(svg):
+    return [float(x) for x in svg.attrib["viewBox"].split()]
+
+def make_overlay(file, desired_x, desired_y, desired_size):
+    svg = etree.parse(file).getroot()
+    _, _, w, h = viewbox(svg)
+    # Assume overlays are square
+    assert math.isclose(w, h, rel_tol=1e-6)
+    scale = desired_size / w
+    # Pull out the main layer
+    overlay = svg.find("{http://www.w3.org/2000/svg}g")
+    # Strip off ids to avoid collisions with parent doc
+    for elem in overlay.iter():
+        if "id" in elem.attrib:
+            del elem.attrib["id"]
+    # Wrap in a transformed group and return
+    g = E("g", transform=f"translate({desired_x} {desired_y}) scale({scale})")
+    g.append(overlay)
+    return g
+
+def add_play_pause(main_svg):
+    view_x, view_y, view_w, view_h = viewbox(main_svg)
+    desired_size = 0.7 * min(view_w, view_h)
+    desired_x = view_x + (view_w - desired_size) / 2
+    desired_y = view_y + (view_h - desired_size) / 2
+    play_elem = make_overlay(
+        "play-overlay.svg", desired_x, desired_y, desired_size
+    )
+    play_elem.attrib["id"] = "play-overlay"
+    main_svg.append(play_elem)
+    replay_elem = make_overlay(
+        "replay-overlay.svg", desired_x, desired_y, desired_size
+    )
+    replay_elem.attrib["id"] = "replay-overlay"
+    replay_elem.attrib["style"] = "display: none; opacity: 0; transition: opacity 2s"
+    main_svg.append(replay_elem)
+    main_svg.append(E("script", open("player.js").read()))
+    main_svg.attrib["onload"] = "init()"
 
 def id_gen_fn():
     c = count()
@@ -148,18 +192,23 @@ def E(*args, **kwargs):
 # animation, but that can cause a flash of visibility... so instead we rewrite
 # inkscape's style= attrs to remove the opacity:1, and then use CSS to set it.
 # Kind of a big hammer, but it works.
-def set_initial_css(which, name, value):
-    which_elem = GLOBAL_STATE.by_id[which]
-    if "style" in which_elem.attrib:
-        old_style = which_elem.attrib["style"]
-        old_decls = tinycss2.parse_declaration_list(old_style)
-        new_decls = [d for d in old_decls if d.name != name]
-        which_elem.attrib["style"] = tinycss2.serialize(new_decls)
-    GLOBAL_STATE.svg.append(E("style", f"#{which} {{ {name}: {value}; }}"))
+def set_initial_css(whiches, name, value):
+    for which in whiches:
+        which_elem = GLOBAL_STATE.by_id[which]
+        if "style" in which_elem.attrib:
+            old_style = which_elem.attrib["style"]
+            old_decls = tinycss2.parse_declaration_list(old_style)
+            new_decls = [d for d in old_decls if d.name != name]
+            which_elem.attrib["style"] = tinycss2.serialize(new_decls)
+    # Put the <style> tag at the top of the doc, so the rendered sees it
+    # before the relevant nodes
+    selectors = ", ".join(f"#{which}" for which in whiches)
+    GLOBAL_STATE.svg.insert(
+        0, E("style", f"{selectors} {{ {name}: {value}; }}")
+    )
 
 def hidden(*whiches):
-    for which in whiches:
-        set_initial_css(which, "opacity", 0)
+    set_initial_css(whiches, "opacity", 0)
 
 # Create element, add it to the svg, give it an id, and return a TimeSpan
 def add_SMIL_tag(*args, **kwargs):
@@ -172,15 +221,15 @@ def add_SMIL_tag(*args, **kwargs):
     GLOBAL_STATE.time = elem_ts.end
     return elem_ts
 
-# Add a SMIL <set> tag
-def set(which, what, to):
-    add_SMIL_tag(
-        "set",
-        href="#" + which,
-        attributeName=what,
-        to=to,
-        fill="freeze",
-    )
+# # Add a SMIL <set> tag
+# def set(which, what, to):
+#     add_SMIL_tag(
+#         "set",
+#         href="#" + which,
+#         attributeName=what,
+#         to=to,
+#         fill="freeze",
+#     )
 
 # Add a SMIL <animate> tag
 def animate(which, dur, what, **kwargs):

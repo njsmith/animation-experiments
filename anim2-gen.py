@@ -21,13 +21,17 @@ with make_anim("anim2-assets.svg", "anim2-2.svg"):
 
     def receive_task_step(word):
         receive_task_lines.next()
+        if word == "hello":
+            with keep_time():
+                sleep(0.5)
+                slide("world", 1.5, "world-catchup-path")
         slide(word, 3, f"{word}-path-out")
         with keep_time():
             animate(f"receive-{word}-arrow", 0.5, "opacity", to=1)
         animate(f"{word}-box", 1, "opacity", to=0)
         sleep(0.5)
 
-    sleep(0.5)
+    sleep(1)
     send_task_step("hello", 3)
     send_task_step("world", 2.5)
     send_task_lines.finish()
