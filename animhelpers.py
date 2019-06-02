@@ -12,7 +12,7 @@ __all__ = [
     # Entry point
     "make_anim",
     # Time
-    "keep_time", "set_time", "sleep",
+    "keep_time", "set_time", "wait",
     # SVG manipulation
     "set_initial_css", "animate", "slide",
     # High-level helpers
@@ -161,9 +161,9 @@ def keep_time():
 def set_time(t):
     GLOBAL_STATE.time = obj_to_time(t)
 
-# Note: this really just moves you on the animation timeline, so you can sleep
+# Note: this really just moves you on the animation timeline, so you can wait
 # negative time
-def sleep(offset):
+def wait(offset):
     GLOBAL_STATE.time += offset
 
 
