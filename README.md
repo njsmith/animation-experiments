@@ -165,7 +165,7 @@ industry standard for high-end animations. But:
 
 - Adobe After Effects is expensive and has a steep learning curve
 - You have to do everything with clicking and dragging; you can't
-  describe an animation using a 'for' loop. (Or maybe you can somehow,
+  describe an animation using a `for` loop. (Or maybe you can somehow,
   if you get far enough up that learning curve, but probably anyone
   writing Trio docs already knows Python.)
 
@@ -173,17 +173,17 @@ You can use the open-source [Synfig Studio](https://www.synfig.org/).
 This is pretty cool actually. But its vector editing tools are way
 clunkier than Inkscape's, so you'd still need to use Inkscape to build
 most of the diagram, and then add motion in Synfig Studio. And it's
-not scriptable. And it only outputs raster-based animation format.
+not scriptable. And it only outputs raster-based video formats.
 (Though there's a [GSoC project to add Lottie/Bodymovin as an export
 format](https://forums.synfig.org/t/gsoc-2019-export-animation-for-web/9507/45).)
 
-You can build something with some kind of JS animation library. But
-all the ones I looked at would need some significant extra stuff
-hacked in to do what we want, and I barely know JS.
+You can build something with a JS animation library. But there are
+like dozens of these, I can't tell which ones are actually
+used/maintained, they mostly seem to work at a lower-level of
+abstraction than SMIL, and I don't actually know JS.
 
 So that's why for now we're using SMIL, even if it doesn't work in IE
-and CSS animations are the future.
+and CSS animations are The Way Of The Future™.
 
-Hopefully if we have to eventually convert to another format like CSS
-animations or JS, we can do that by just rewriting the `animate`,
-`slide`, etc. helpers.
+Hopefully if we have to eventually convert to another delivery format,
+we can do that by just rewriting the `animate`, `slide`, etc. helpers.
