@@ -24,6 +24,7 @@ function init() {
             }
         }
     })
+    play_overlay.style.display = "inline";
 
     animations = Array.from(document.querySelectorAll("animate, animateMotion, animateColor, animateTransform, set"));
     // Hack: assume that the last tag in document order corresponds to the

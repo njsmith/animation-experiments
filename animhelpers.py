@@ -101,6 +101,11 @@ def add_play_pause(main_svg):
         "play-overlay.svg", desired_x, desired_y, desired_size
     )
     play_elem.attrib["id"] = "play-overlay"
+    # This starts out hidden and then the JS un-hides it. So if you have JS
+    # disabled – which can easily happen by e.g. embedding the svg in an <img>
+    # tag – then you lose play/pause/replay controls but can still see the
+    # animation.
+    play_elem.attrib["style"] = "display: none"
     main_svg.append(play_elem)
     replay_elem = make_overlay(
         "replay-overlay.svg", desired_x, desired_y, desired_size
