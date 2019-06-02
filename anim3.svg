@@ -405,11 +405,11 @@
  <g id="layer3" transform="translate(1.8285e-7 .5325)">
   <path id="path5114" d="m236 78.138h-111.22c2.702-0.02601 4.8867-5.296 4.8867-11.788 0-6.4918-2.1847-11.762-4.8867-11.788l111.22-2e-6c2.702 0.02606 4.8867 5.296 4.8867 11.788 0 6.4919-2.1847 11.762-4.8867 11.788" fill="#248829" fill-opacity=".58824" fill-rule="evenodd" stroke="#248829" stroke-linejoin="round" stroke-opacity=".89804" stroke-width="1.065"/>
  </g>
- <g id="play-overlay" transform="translate(160.96 14.386) scale(67.134)">
+ <g id="play-overlay" transform="translate(160.96 14.386) scale(67.134)" display="none">
   <g transform="translate(0 -6.2831)" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd">
    <g>
-    <circle cx=".5" cy="6.7831" r=".5" color="#000000" color-rendering="auto" fill="#48df62" image-rendering="auto" opacity=".365" shape-rendering="auto" solid-color="#000000" text-rendering="auto" style="isolation:auto;mix-blend-mode:normal"/>
-    <path d="m0.8243 6.7831-0.50246-0.39686v0.79373z" fill="#136d13" fill-rule="evenodd" opacity=".745"/>
+    <circle cx=".5" cy="6.7831" r=".5" color="#000000" color-rendering="auto" display="inline" fill="#48df62" image-rendering="auto" opacity=".365" shape-rendering="auto" solid-color="#000000" text-rendering="auto" style="isolation:auto;mix-blend-mode:normal"/>
+    <path d="m0.8243 6.7831-0.50246-0.39686v0.79373z" display="inline" fill="#136d13" fill-rule="evenodd" opacity=".745"/>
    </g>
   </g>
  </g>
@@ -447,6 +447,7 @@ function init() {
             }
         }
     })
+    play_overlay.style.display = "inline";
 
     animations = Array.from(document.querySelectorAll("animate, animateMotion, animateColor, animateTransform, set"));
     // Hack: assume that the last tag in document order corresponds to the
@@ -460,7 +461,7 @@ function init() {
     // last_finish_time = Math.max(...finish_times);
     // last_i = finish_times.indexOf(last_finish_time);
     // last_anim = animations[last_i];
-    last_anim.addEventListener("end", function() {
+    last_anim.addEventListener("endEvent", function() {
         console.log("the end is here");
         at_end = true;
         play_overlay.style.display = "none"; // just in case
