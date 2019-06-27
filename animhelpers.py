@@ -51,6 +51,8 @@ def make_anim(in_svg, out_svg, *, minify=True):
     source file: {in_svg}
     """))
 
+    svg.append(E("style", "svg { cursor: pointer; }"))
+
     add_play_pause(svg)
 
     # Our own little getElementById
@@ -205,7 +207,7 @@ def set_initial_css(whiches, name, value):
             old_decls = tinycss2.parse_declaration_list(old_style)
             new_decls = [d for d in old_decls if d.name != name]
             which_elem.attrib["style"] = tinycss2.serialize(new_decls)
-    # Put the <style> tag at the top of the doc, so the rendered sees it
+    # Put the <style> tag at the top of the doc, so the renderer sees it
     # before the relevant nodes
     selectors = ", ".join(f"#{which}" for which in whiches)
     GLOBAL_STATE.svg.insert(

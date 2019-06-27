@@ -405,6 +405,7 @@
  <g id="layer3" transform="translate(1.8285e-7 .5325)">
   <path id="path5114" d="m236 78.138h-111.22c2.702-0.02601 4.8867-5.296 4.8867-11.788 0-6.4918-2.1847-11.762-4.8867-11.788l111.22-2e-6c2.702 0.02606 4.8867 5.296 4.8867 11.788 0 6.4919-2.1847 11.762-4.8867 11.788" fill="#248829" fill-opacity=".58824" fill-rule="evenodd" stroke="#248829" stroke-linejoin="round" stroke-opacity=".89804" stroke-width="1.065"/>
  </g>
+ <style>svg { cursor: pointer; }</style>
  <g id="play-overlay" transform="translate(160.96 14.386) scale(67.134)" display="none">
   <g transform="translate(0 -6.2831)" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd">
    <g>
